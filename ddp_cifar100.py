@@ -108,4 +108,6 @@ def run_training(rank, size):
 
 if __name__ == "__main__":
     local_rank = int(os.environ["LOCAL_RANK"])
-    init_process(local_rank, fn=run_training, backend="gloo")  # replace with "nccl" when testing on GPUs
+    # init_process(local_rank, fn=run_training, backend="gloo")  # replace with "nccl" when testing on GPUs
+    init_process(local_rank, fn=run_training, backend="nccl")  # replace with "nccl" when testing on GPUs
+

@@ -48,17 +48,6 @@ class sync_batch_norm(Function):
         grad_input /= n * torch.sqrt(grad_output_sum + eps)
         return grad_input, None, None, None, None
 
-    # @staticmethod
-    # def backward(ctx, grad_output):
-    #     # don't forget to return a tuple of gradients wrt all arguments of `forward`!
-    #     input, mean, std = ctx.saved_tensors
-    #     m = input.shape[0]
-    #     centered_x = input - mean
-    #     first = (1 / std) * grad_output - (1 / (m * std)) * grad_output.sum(axis=0)
-    #     second = (input - mean) / (m * (std ** 3)) * (grad_output * centered_x).sum(axis=0)
-    #     return first - second
-
-
 class SyncBatchNorm(_BatchNorm):
     """
     Applies Batch Normalization to the input (over the 0 axis), aggregating the activation statistics
