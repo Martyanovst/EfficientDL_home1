@@ -85,8 +85,7 @@ def run_training(rank, size):
         ),
         download=True,
     )
-    train_dataset, val_dataset = torch.utils.data.random_split(dataset,
-                                                               [int(len(dataset) * 0.8), int(len(dataset) * 0.1)])
+    train_dataset, val_dataset = torch.utils.data.random_split(dataset, [len(dataset) - 10000, 10000])
     # where's the validation dataset?
     train_loader = DataLoader(train_dataset, sampler=DistributedSampler(train_dataset, size, rank), batch_size=64)
     process_count = dist.get_world_size()
