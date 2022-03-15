@@ -9,6 +9,8 @@ from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from torchvision.datasets import CIFAR100
 
+from syncbn import SyncBatchNorm
+
 torch.set_num_threads(1)
 
 
@@ -33,7 +35,8 @@ class Net(nn.Module):
         self.dropout2 = nn.Dropout(0.5)
         self.fc1 = nn.Linear(6272, 128)
         self.fc2 = nn.Linear(128, 100)
-        self.bn1 = nn.BatchNorm1d(128, affine=False)  # to be replaced with SyncBatchNorm
+        # self.bn1 = nn.BatchNorm1d(128, affine=False)  # to be replaced with SyncBatchNorm
+        self.bn1 = SyncBatchNorm(128)  # to be replaced with SyncBatchNorm
 
     def forward(self, x):
         x = self.conv1(x)
@@ -78,8 +81,7 @@ def run_training(rank, size):
     loader = DataLoader(dataset, sampler=DistributedSampler(dataset, size, rank), batch_size=64)
 
     model = Net()
-    # device = torch.device("cpu")  # replace with "cuda" afterwards
-    device = torch.device("cuda")  # replace with "cuda" afterwards
+    device = torch.device("cpu")  # replace with "cuda" afterwards
     model.to(device)
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.5)
 
@@ -109,6 +111,6 @@ def run_training(rank, size):
 
 if __name__ == "__main__":
     local_rank = int(os.environ["LOCAL_RANK"])
-    # init_process(local_rank, fn=run_training, backend="gloo")  # replace with "nccl" when testing on GPUs
-    init_process(local_rank, fn=run_training, backend="nccl")  # replace with "nccl" when testing on GPUs
+    init_process(local_rank, fn=run_training, backend="gloo")  # replace with "nccl" when testing on GPUs
+    # init_process(local_rank, fn=run_training, backend="nccl")  # replace with "nccl" when testing on GPUs
 
