@@ -15,11 +15,12 @@ torch.set_num_threads(1)
 
 
 def convert_dataset_to_tensor(dataset):
-    X = torch.zeros(size=(len(dataset), dataset[0][0].shape[0]))
-    y = torch.zeros(size=(len(dataset), ))
+    X, y = [], []
     for i in range(len(dataset)):
-        X[i], y[i] = dataset[i]
-    return X, y
+        X_i, y_i = dataset[i]
+        X.append(X_i)
+        y.append(y)
+    return torch.tensor(X), torch.tensor(y)
 
 
 def init_process(local_rank, fn, backend="nccl"):
