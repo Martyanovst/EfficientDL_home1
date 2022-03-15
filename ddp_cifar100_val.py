@@ -18,9 +18,8 @@ def convert_dataset_to_tensor(dataset):
     X, y = [], []
     for i in range(len(dataset)):
         X_i, y_i = dataset[i]
-        X.append(X_i)
-        y.append(y_i)
-    return torch.stack(X), torch.FloatTensor(y)
+        X.append(torch.cat((X_i, torch.ones(size=X_i.size()[1:]).unsqueeze(0) * y_i)))
+    return torch.stack(X)
 
 
 def init_process(local_rank, fn, backend="nccl"):
@@ -91,10 +90,10 @@ def run_training(rank, size):
     train_loader = DataLoader(train_dataset, sampler=DistributedSampler(train_dataset, size, rank), batch_size=64)
     process_count = dist.get_world_size()
     if rank == 0:
-        X, y = convert_dataset_to_tensor(val_dataset)
-        val_tensor = torch.stack((X, y))
+        val_tensor = convert_dataset_to_tensor(val_dataset)
+
         val_tensor_list = torch.split(val_tensor, process_count)
-        val = torch.zeros(size=(val_tensor.shape[0] / process_count, val_tensor.shape[1]))
+        val = torch.zeros(size=(10,))
         dist.scatter(val, scatter_list=val_tensor_list)
     else:
         val = torch.zeros(size=(10,))
@@ -156,4 +155,3 @@ def run_training(rank, size):
 if __name__ == "__main__":
     local_rank = int(os.environ["LOCAL_RANK"])
     init_process(local_rank, fn=run_training, backend="gloo")  # replace with "nccl" when testing on GPUs
-    # init_process(local_rank, fn=run_training, backend="nccl")  # replace with "nccl" when testing on GPUs
