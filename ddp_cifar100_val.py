@@ -14,6 +14,14 @@ from syncbn import SyncBatchNorm
 torch.set_num_threads(1)
 
 
+def convert_dataset_to_tensor(dataset):
+    X = torch.zeros(size=(len(dataset), dataset[0][0].shape[0]))
+    y = torch.zeros(size=len(dataset))
+    for i in range(len(dataset)):
+        X[i], y[i] = dataset[i]
+    return X, y
+
+
 def init_process(local_rank, fn, backend="nccl"):
     """Initialize the distributed environment."""
     dist.init_process_group(backend, rank=local_rank)
@@ -65,7 +73,7 @@ def average_gradients(model):
 
 
 def run_training(rank, size):
-    torch.manual_seed(0)
+    torch.manual_seed(rank)
 
     dataset = CIFAR100(
         "./cifar",
@@ -79,6 +87,18 @@ def run_training(rank, size):
     )
     # where's the validation dataset?
     loader = DataLoader(dataset, sampler=DistributedSampler(dataset, size, rank), batch_size=64)
+    process_count = dist.get_world_size()
+    if rank == 0:
+        X, y = convert_dataset_to_tensor(dataset)
+        val_tensor = torch.hstack((X, y))
+        val_tensor_list = torch.split(val_tensor, process_count)
+        val = torch.zeros(size=(val_tensor.shape[0] / process_count, val_tensor.shape[1]))
+        dist.scatter(val, scatter_list=val_tensor_list)
+    else:
+        val = torch.zeros(10)
+        dist.scatter(val, scatter_list=None)
+    val_X, val_y = val
+    val_loader = DataLoader(val_X, val_y, batch_size=64)
 
     model = Net()
     device = torch.device("cpu")  # replace with "cuda" afterwards
@@ -107,6 +127,21 @@ def run_training(rank, size):
             print(f"Rank {dist.get_rank()}, loss: {epoch_loss / num_batches}, acc: {acc}")
             epoch_loss = 0
         # where's the validation loop?
+        for data, target in val_loader:
+            epoch_loss = 0
+            data = data.to(device)
+            target = target.to(device)
+
+            output = model(data)
+            loss = torch.nn.functional.cross_entropy(output, target)
+            epoch_loss += loss.detach()
+            acc = (output.argmax(dim=1) == target).float().mean()
+            sync_tensor = torch.tensor([epoch_loss, acc])
+            dist.all_reduce(sync_tensor, op=dist.ReduceOp.SUM)
+            sync_tensor /= dist.get_world_size()
+            if rank == 0:
+                epoch_loss, acc = sync_tensor
+                print(f"Rank {dist.get_rank()}, loss: {epoch_loss / num_batches}, acc: {acc}")
 
 
 
@@ -114,4 +149,3 @@ if __name__ == "__main__":
     local_rank = int(os.environ["LOCAL_RANK"])
     init_process(local_rank, fn=run_training, backend="gloo")  # replace with "nccl" when testing on GPUs
     # init_process(local_rank, fn=run_training, backend="nccl")  # replace with "nccl" when testing on GPUs
-
