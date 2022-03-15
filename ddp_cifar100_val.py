@@ -20,7 +20,7 @@ def convert_dataset_to_tensor(dataset):
         X_i, y_i = dataset[i]
         X.append(X_i)
         y.append(y)
-    return torch.stack(X), torch.stack(y)
+    return torch.stack(X), torch.FloatTensor(y)
 
 
 def init_process(local_rank, fn, backend="nccl"):
