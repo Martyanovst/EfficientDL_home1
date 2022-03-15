@@ -93,7 +93,7 @@ def run_training(rank, size):
         val_tensor = convert_dataset_to_tensor(val_dataset)
 
         val_tensor_list = torch.split(val_tensor, process_count)
-        val = torch.zeros(size=(10,))
+        val = torch.zeros(size=val_tensor_list[0].size())
         dist.scatter(val, scatter_list=val_tensor_list)
     else:
         val = torch.zeros(size=(10,))
