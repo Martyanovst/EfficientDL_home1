@@ -91,11 +91,11 @@ def run_training(rank, size):
     process_count = dist.get_world_size()
     if rank == 0:
         val_tensor = convert_dataset_to_tensor(val_dataset)
-        val_tensor_list = torch.split(val_tensor, process_count)
+        val_tensor_list = list(torch.split(val_tensor, int(10000 / process_count)))
         val = torch.zeros(size=val_tensor_list[0].size())
         dist.scatter(val, scatter_list=val_tensor_list)
     else:
-        val = torch.zeros(size=(int(10000 / dist.get_world_size()), 4, 32, 32))
+        val = torch.zeros(size=(int(10000 / process_count), 4, 32, 32))
         dist.scatter(val, scatter_list=None)
     val_X = val[:, :4, :, :]
     val_y = val[:, 4, 0, 0]
