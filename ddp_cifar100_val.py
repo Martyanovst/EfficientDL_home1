@@ -19,7 +19,7 @@ def convert_dataset_to_tensor(dataset):
     for i in range(len(dataset)):
         X_i, y_i = dataset[i]
         X.append(X_i)
-        y.append(y)
+        y.append(y_i)
     return torch.stack(X), torch.FloatTensor(y)
 
 
