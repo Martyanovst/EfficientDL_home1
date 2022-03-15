@@ -32,7 +32,7 @@ class sync_batch_norm(Function):
         running_mean = momentum * running_mean + mean * (1 - momentum)
         running_std = momentum * running_std + std * (1 - momentum)
         output = (input - mean) / torch.sqrt(std + eps)
-        print(output)
+        print(mean, std, n)
         ctx.save_for_backward(output, torch.tensor([n]), std,  torch.tensor([eps]))
         return output
 
