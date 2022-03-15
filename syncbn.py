@@ -23,7 +23,7 @@ class sync_batch_norm(Function):
         batch_shape, vector_shape = input.shape[0], input.shape[1]
         n = batch_shape * dist.get_world_size()
         ssum = torch.sum(input, dim=0)
-        ssum_squared = torch.sum(input ** 2, dim=0)
+        ssum_squared = torch.sum(torch.square(input), dim=0)
         sync_tensor = torch.stack((ssum, ssum_squared))
         dist.all_reduce(sync_tensor, op=dist.ReduceOp.SUM)
         ssum, ssum_squared = sync_tensor
