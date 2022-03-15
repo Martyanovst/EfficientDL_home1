@@ -78,7 +78,8 @@ def run_training(rank, size):
     loader = DataLoader(dataset, sampler=DistributedSampler(dataset, size, rank), batch_size=64)
 
     model = Net()
-    device = torch.device("cpu")  # replace with "cuda" afterwards
+    # device = torch.device("cpu")  # replace with "cuda" afterwards
+    device = torch.device("cuda")  # replace with "cuda" afterwards
     model.to(device)
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.5)
 
