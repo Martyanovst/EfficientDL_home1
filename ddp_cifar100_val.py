@@ -85,11 +85,13 @@ def run_training(rank, size):
         ),
         download=True,
     )
+    train_dataset, val_dataset = torch.utils.data.random_split(dataset,
+                                                               [int(len(dataset) * 0.8), int(len(dataset) * 0.1)])
     # where's the validation dataset?
-    loader = DataLoader(dataset, sampler=DistributedSampler(dataset, size, rank), batch_size=64)
+    train_loader = DataLoader(train_dataset, sampler=DistributedSampler(train_dataset, size, rank), batch_size=64)
     process_count = dist.get_world_size()
     if rank == 0:
-        X, y = convert_dataset_to_tensor(dataset)
+        X, y = convert_dataset_to_tensor(val_dataset)
         val_tensor = torch.hstack((X, y))
         val_tensor_list = torch.split(val_tensor, process_count)
         val = torch.zeros(size=(val_tensor.shape[0] / process_count, val_tensor.shape[1]))
@@ -110,7 +112,7 @@ def run_training(rank, size):
     for _ in range(10):
         epoch_loss = torch.zeros((1,), device=device)
 
-        for data, target in loader:
+        for data, target in train_loader:
             data = data.to(device)
             target = target.to(device)
 
@@ -127,22 +129,25 @@ def run_training(rank, size):
             print(f"Rank {dist.get_rank()}, loss: {epoch_loss / num_batches}, acc: {acc}")
             epoch_loss = 0
         # where's the validation loop?
+        val_loss = 0
+        val_acc = 0
+        elements_count = 0
         for data, target in val_loader:
-            epoch_loss = 0
+            elements_count += len(target)
             data = data.to(device)
             target = target.to(device)
 
             output = model(data)
             loss = torch.nn.functional.cross_entropy(output, target)
-            epoch_loss += loss.detach()
-            acc = (output.argmax(dim=1) == target).float().mean()
-            sync_tensor = torch.tensor([epoch_loss, acc])
-            dist.all_reduce(sync_tensor, op=dist.ReduceOp.SUM)
-            sync_tensor /= dist.get_world_size()
-            if rank == 0:
-                epoch_loss, acc = sync_tensor
-                print(f"Rank {dist.get_rank()}, loss: {epoch_loss / num_batches}, acc: {acc}")
-
+            val_loss += loss.detach()
+            val_acc += (output.argmax(dim=1) == target).float().sum()
+        val_acc = val_acc / elements_count
+        sync_tensor = torch.tensor([val_loss, val_acc])
+        dist.all_reduce(sync_tensor, op=dist.ReduceOp.SUM)
+        sync_tensor /= dist.get_world_size()
+        if rank == 0:
+            epoch_loss, acc = sync_tensor
+            print(f"VALIDATION: Rank {dist.get_rank()}, loss: {epoch_loss / num_batches}, acc: {acc}")
 
 
 if __name__ == "__main__":
