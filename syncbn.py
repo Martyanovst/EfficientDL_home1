@@ -20,7 +20,7 @@ class sync_batch_norm(Function):
     def forward(ctx, input, running_mean, running_std, eps: float, momentum: float):
         # Compute statistics, sync statistics, apply them to the input
         # Also, store relevant quantities to be used on the backward pass with `ctx.save_for_backward`
-        batch_shape, vector_shape = input.shape[1]
+        batch_shape, vector_shape = input.shape[0], input.shape[1]
         n = batch_shape * dist.get_world_size()
         ssum = torch.sum(input, dim=0)
         ssum_squared = torch.sum(input ** 2, dim=0)
