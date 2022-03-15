@@ -32,8 +32,8 @@ class sync_batch_norm(Function):
         running_mean = momentum * running_mean + mean * (1 - momentum)
         running_std = momentum * running_std + std * (1 - momentum)
         output = (input - mean) / torch.sqrt(std + eps)
-        print(mean, std, n)
-        ctx.save_for_backward(output, torch.tensor([n]), std,  torch.tensor([eps]))
+        print(ssum, ssum_squared)
+        ctx.save_for_backward(output, torch.tensor([n]), std, torch.tensor([eps]))
         return output
 
     @staticmethod
@@ -45,8 +45,10 @@ class sync_batch_norm(Function):
         sync_tensor = torch.stack((grad_output_sum, output_grad_output_sum))
         dist.all_reduce(sync_tensor, op=dist.ReduceOp.SUM)
         grad_output_sum, output_grad_output_sum = sync_tensor
-        grad_input = grad_output * n - grad_output_sum - output * output_grad_output_sum
-        grad_input /= n * torch.sqrt(grad_output_sum + eps)
+        grad_input = grad_output * n
+        grad_input -= grad_output_sum
+        grad_input -= output * output_grad_output_sum
+        grad_input /= n * torch.sqrt(output_std + eps)
         return grad_input, None, None, None, None
 
 class SyncBatchNorm(_BatchNorm):
