@@ -29,11 +29,11 @@ class sync_batch_norm(Function):
         ssum, ssum_squared = sync_tensor
         mean = ssum / n
         std = ssum_squared / n - (mean ** 2)
-        output_mean = momentum * running_mean + mean * (1 - momentum)
-        output_std = momentum * running_std + std * (1 - momentum)
+        running_mean = momentum * running_mean + mean * (1 - momentum)
+        running_std = momentum * running_std + std * (1 - momentum)
         output = (input - mean) / torch.sqrt(std + eps)
-        ctx.save_for_backward(output, torch.tensor([n]), output_std,  torch.tensor([eps]))
-        return output, output_mean, output_std, eps, momentum
+        ctx.save_for_backward(output, torch.tensor([n]), std,  torch.tensor([eps]))
+        return output
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -70,5 +70,5 @@ class SyncBatchNorm(_BatchNorm):
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         # You will probably need to use `sync_batch_norm` from above
-        output, self.running_mean, self.running_std, _ , _ = sync_batch_norm.apply(input, self.running_mean, self.running_std, self.eps, self.momentum)
+        output = sync_batch_norm.apply(input, self.running_mean, self.running_std, self.eps, self.momentum)
         return output
