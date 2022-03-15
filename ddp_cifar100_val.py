@@ -107,7 +107,7 @@ def run_training(rank, size):
     model.to(device)
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.5)
 
-    num_batches = len(loader)
+    num_batches = len(train_loader)
 
     for _ in range(10):
         epoch_loss = torch.zeros((1,), device=device)
