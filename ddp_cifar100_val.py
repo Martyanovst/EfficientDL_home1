@@ -16,7 +16,7 @@ torch.set_num_threads(1)
 
 def convert_dataset_to_tensor(dataset):
     X = torch.zeros(size=(len(dataset), dataset[0][0].shape[0]))
-    y = torch.zeros(size=len(dataset))
+    y = torch.zeros(size=(len(dataset), ))
     for i in range(len(dataset)):
         X[i], y[i] = dataset[i]
     return X, y
@@ -97,7 +97,7 @@ def run_training(rank, size):
         val = torch.zeros(size=(val_tensor.shape[0] / process_count, val_tensor.shape[1]))
         dist.scatter(val, scatter_list=val_tensor_list)
     else:
-        val = torch.zeros(10)
+        val = torch.zeros(size=(10,))
         dist.scatter(val, scatter_list=None)
     val_X, val_y = val
     val_loader = DataLoader(val_X, val_y, batch_size=64)
