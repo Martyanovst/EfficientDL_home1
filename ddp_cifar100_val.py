@@ -91,14 +91,14 @@ def run_training(rank, size):
     process_count = dist.get_world_size()
     if rank == 0:
         val_tensor = convert_dataset_to_tensor(val_dataset)
-
         val_tensor_list = torch.split(val_tensor, process_count)
         val = torch.zeros(size=val_tensor_list[0].size())
         dist.scatter(val, scatter_list=val_tensor_list)
     else:
-        val = torch.zeros(size=(10,))
+        val = torch.zeros(size=(10000 / dist.get_world_size(), 4, 32, 32))
         dist.scatter(val, scatter_list=None)
-    val_X, val_y = val
+    val_X = val[:, :4, :, :]
+    val_y = val[:, 4, 0, 0]
     val_loader = DataLoader(val_X, val_y, batch_size=64)
 
     model = Net()
