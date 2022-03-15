@@ -92,7 +92,7 @@ def run_training(rank, size):
     process_count = dist.get_world_size()
     if rank == 0:
         X, y = convert_dataset_to_tensor(val_dataset)
-        val_tensor = torch.hstack((X, y))
+        val_tensor = torch.stack((X, y))
         val_tensor_list = torch.split(val_tensor, process_count)
         val = torch.zeros(size=(val_tensor.shape[0] / process_count, val_tensor.shape[1]))
         dist.scatter(val, scatter_list=val_tensor_list)
@@ -129,25 +129,28 @@ def run_training(rank, size):
             print(f"Rank {dist.get_rank()}, loss: {epoch_loss / num_batches}, acc: {acc}")
             epoch_loss = 0
         # where's the validation loop?
-        val_loss = 0
-        val_acc = 0
-        elements_count = 0
+        acc = 0
+        epoch_loss = 0
+        val_batches_num = len(val_loader)
         for data, target in val_loader:
-            elements_count += len(target)
             data = data.to(device)
             target = target.to(device)
 
             output = model(data)
             loss = torch.nn.functional.cross_entropy(output, target)
-            val_loss += loss.detach()
-            val_acc += (output.argmax(dim=1) == target).float().sum()
-        val_acc = val_acc / elements_count
-        sync_tensor = torch.tensor([val_loss, val_acc])
-        dist.all_reduce(sync_tensor, op=dist.ReduceOp.SUM)
-        sync_tensor /= dist.get_world_size()
+            epoch_loss += loss.detach()
+            acc += (output.argmax(dim=1) == target).float().sum()
+
+        acc /= val_batches_num
+        epoch_loss /= val_batches_num
+
+        for_sync = torch.stack([epoch_loss, acc])
+        dist.all_reduce(for_sync, op=dist.ReduceOp.SUM)
+        all_acc, all_epoch_loss = for_sync
+        all_acc /= dist.get_world_size()
+        all_epoch_loss /= dist.get_world_size()
         if rank == 0:
-            epoch_loss, acc = sync_tensor
-            print(f"VALIDATION: Rank {dist.get_rank()}, loss: {epoch_loss / num_batches}, acc: {acc}")
+            print(f"Rank {dist.get_rank()}, loss: {all_epoch_loss}, acc: {all_acc}")
 
 
 if __name__ == "__main__":
