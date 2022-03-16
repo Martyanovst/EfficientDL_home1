@@ -56,19 +56,19 @@ class SyncBatchNorm(_BatchNorm):
     across all processes. You can assume that there are no affine operations in this layer.
     """
 
-    def __init__(self, num_features: int, eps: float = 1e-5, momentum: float = 0.1):
+    def __init__(self, num_features: int, device, eps: float = 1e-5, momentum: float = 0.1):
         super().__init__(
             num_features,
             eps,
             momentum,
             affine=False,
             track_running_stats=True,
-            device=None,
+            device=device,
             dtype=None,
         )
         # your code here
-        self.running_mean = torch.zeros((num_features,))
-        self.running_std = torch.ones((num_features,))
+        self.running_mean = torch.zeros((num_features,), device=device)
+        self.running_std = torch.ones((num_features,), device=device)
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         # You will probably need to use `sync_batch_norm` from above
