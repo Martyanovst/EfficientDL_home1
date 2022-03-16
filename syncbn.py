@@ -72,5 +72,8 @@ class SyncBatchNorm(_BatchNorm):
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         # You will probably need to use `sync_batch_norm` from above
-        return sync_batch_norm.apply(input, self.running_mean, self.running_std, self.eps, self.momentum)
+        if self.training:
+            return sync_batch_norm.apply(input, self.running_mean, self.running_std, self.eps, self.momentum)
+        else:
+            return (input - self.running_mean) / torch.sqrt(self.running_std + self.eps)
 
