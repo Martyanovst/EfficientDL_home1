@@ -5,7 +5,7 @@ import torch.distributed as dist
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.transforms as transforms
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, TensorDataset
 from torch.utils.data.distributed import DistributedSampler
 from torchvision.datasets import CIFAR100
 
@@ -97,9 +97,10 @@ def run_training(rank, size):
     else:
         val = torch.zeros(size=(int(10000 / process_count), 4, 32, 32))
         dist.scatter(val, scatter_list=None)
-    val_X = val[:, :4, :, :]
-    val_y = val[:, 4, 0, 0]
-    val_loader = DataLoader(val_X, val_y, batch_size=64)
+    val_X = val[:, :3, :, :]
+    val_y = val[:, 3, 0, 0]
+    val_dataset = TensorDataset(val_X, val_y.type(torch.LongTensor))
+    val_loader = DataLoader(val_dataset, batch_size=64)
 
     model = Net()
     device = torch.device("cpu")  # replace with "cuda" afterwards
@@ -108,8 +109,7 @@ def run_training(rank, size):
 
     num_batches = len(train_loader)
 
-    for _ in range(10):
-        epoch_loss = torch.zeros((1,), device=device)
+    for epoch in range(10):
 
         for data, target in train_loader:
             data = data.to(device)
@@ -118,38 +118,32 @@ def run_training(rank, size):
             optimizer.zero_grad()
             output = model(data)
             loss = torch.nn.functional.cross_entropy(output, target)
-            epoch_loss += loss.detach()
             loss.backward()
             average_gradients(model)
             optimizer.step()
-
-            acc = (output.argmax(dim=1) == target).float().mean()
-
-            print(f"Rank {dist.get_rank()}, loss: {epoch_loss / num_batches}, acc: {acc}")
-            epoch_loss = 0
         # where's the validation loop?
-        acc = 0
-        epoch_loss = 0
-        val_batches_num = len(val_loader)
+        val_acc = 0
+        val_loss = 0
+        val_batches_num = 0
         for data, target in val_loader:
+            val_batches_num += len(target)
             data = data.to(device)
             target = target.to(device)
-
             output = model(data)
             loss = torch.nn.functional.cross_entropy(output, target)
-            epoch_loss += loss.detach()
-            acc += (output.argmax(dim=1) == target).float().sum()
+            val_loss += loss.detach()
+            val_acc += (output.argmax(dim=1) == target).float().sum()
 
-        acc /= val_batches_num
-        epoch_loss /= val_batches_num
+        val_acc /= val_batches_num
+        val_loss /= val_batches_num
 
-        for_sync = torch.stack([epoch_loss, acc])
+        for_sync = torch.tensor([val_loss, val_acc])
         dist.all_reduce(for_sync, op=dist.ReduceOp.SUM)
-        all_acc, all_epoch_loss = for_sync
-        all_acc /= dist.get_world_size()
-        all_epoch_loss /= dist.get_world_size()
+        val_loss, val_acc = for_sync
+        val_acc /= dist.get_world_size()
+        val_loss /= dist.get_world_size()
         if rank == 0:
-            print(f"Rank {dist.get_rank()}, loss: {all_epoch_loss}, acc: {all_acc}")
+            print(f"Epoch {epoch}, loss: {val_loss}, acc: {val_acc}")
 
 
 if __name__ == "__main__":
