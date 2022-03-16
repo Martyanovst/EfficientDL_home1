@@ -56,7 +56,7 @@ class SyncBatchNorm(_BatchNorm):
     across all processes. You can assume that there are no affine operations in this layer.
     """
 
-    def __init__(self, num_features: int, device, eps: float = 1e-5, momentum: float = 0.1):
+    def __init__(self, num_features: int, device="cpu", eps: float = 1e-5, momentum: float = 0.1):
         super().__init__(
             num_features,
             eps,
