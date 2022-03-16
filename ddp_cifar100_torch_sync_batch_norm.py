@@ -9,7 +9,6 @@ from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from torchvision.datasets import CIFAR100
 
-from syncbn import SyncBatchNorm
 
 torch.set_num_threads(1)
 
