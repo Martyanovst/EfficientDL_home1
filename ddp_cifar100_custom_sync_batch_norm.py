@@ -27,7 +27,7 @@ class Net(nn.Module):
         self.dropout2 = nn.Dropout(0.5)
         self.fc1 = nn.Linear(6272, 128)
         self.fc2 = nn.Linear(128, 100)
-        self.bn1 = SyncBatchNorm(128, device='gpu')  # to be replaced with SyncBatchNorm
+        self.bn1 = SyncBatchNorm(128, device='cuda')  # to be replaced with SyncBatchNorm
 
     def forward(self, x):
         x = self.conv1(x)
